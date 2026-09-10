@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
+import { ModelsPage } from "./pages/ModelsPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function App() {
@@ -17,10 +18,11 @@ function App() {
         path="/models"
         element={
           <ProtectedRoute>
-            <h1>Models Page</h1>
+            <ModelsPage />
           </ProtectedRoute>
         }
       />
+      <Route path="*" element={<Navigate to="/models" replace />} />
     </Routes>
   );
 }
