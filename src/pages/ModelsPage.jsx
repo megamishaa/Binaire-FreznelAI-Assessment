@@ -6,10 +6,10 @@ import {
   Flex,
   Heading,
   Item,
+  NumberField,
   Picker,
   ProgressCircle,
   SearchField,
-  NumberField,
   Text,
   View,
 } from "@adobe/react-spectrum";
@@ -31,8 +31,11 @@ export function ModelsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Search
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  // Filters
   const [pipeline, setPipeline] = useState("");
   const [family, setFamily] = useState("");
   const [architecture, setArchitecture] = useState("");
@@ -41,9 +44,11 @@ export function ModelsPage() {
   const [minFiles, setMinFiles] = useState(undefined);
   const [maxFiles, setMaxFiles] = useState(undefined);
 
+  // Sorting
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState("asc");
 
+  // Load models
   useEffect(() => {
     repository
       .loadModels()
@@ -55,13 +60,25 @@ export function ModelsPage() {
       })
       .catch((err) => {
         console.error(err);
-        setError(err.message);
+        setError(err.message || "Unable to load models.");
       })
       .finally(() => {
         setLoading(false);
       });
   }, []);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [search]);
+
+  // Build filter options
   const filterOptions = useMemo(() => {
     const pipelines = [
       ...new Set(
@@ -95,38 +112,37 @@ export function ModelsPage() {
     };
   }, [models]);
 
+  // Search, filter and sort models
   const filteredModels = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
 
     let result = models.filter((model) => {
+      // Search
       if (query) {
-        const searchableText = [
-          model.name,
-          model.id,
-          model.family,
-          model.architectureCategory,
-          model.weightFormat,
-          model.pipelineTag,
-          ...(model.architectureTags || []),
-          ...(model.weightTags || []),
-          ...(model.allTags || []),
-        ]
-          .join(" ")
-          .toLowerCase();
+        const modelName = (model.name || "").toLowerCase();
 
-        if (!searchableText.includes(query)) {
+        const modelFamily = (model.family || "").toLowerCase();
+
+        const matchesName = modelName.includes(query);
+
+        const matchesFamily = modelFamily.includes(query);
+
+        if (!matchesName && !matchesFamily) {
           return false;
         }
       }
 
+      // Pipeline filter
       if (pipeline && model.pipelineTag !== pipeline) {
         return false;
       }
 
+      // Family filter
       if (family && model.family !== family) {
         return false;
       }
 
+      // Architecture filter
       if (
         architecture &&
         !(model.architectureTags || []).includes(architecture)
@@ -134,14 +150,17 @@ export function ModelsPage() {
         return false;
       }
 
+      // Weight filter
       if (weight && !(model.weightTags || []).includes(weight)) {
         return false;
       }
 
+      // Minimum safetensor files
       if (minFiles !== undefined && model.safetensorFileCount < minFiles) {
         return false;
       }
 
+      // Maximum safetensor files
       if (maxFiles !== undefined && model.safetensorFileCount > maxFiles) {
         return false;
       }
@@ -149,6 +168,7 @@ export function ModelsPage() {
       return true;
     });
 
+    // Sorting
     result = [...result].sort((a, b) => {
       let comparison = 0;
 
@@ -168,7 +188,7 @@ export function ModelsPage() {
     return result;
   }, [
     models,
-    search,
+    debouncedSearch,
     pipeline,
     family,
     architecture,
@@ -179,6 +199,7 @@ export function ModelsPage() {
     sortDirection,
   ]);
 
+  // Clear filters
   const clearFilters = () => {
     setPipeline("");
     setFamily("");
@@ -188,6 +209,7 @@ export function ModelsPage() {
     setMaxFiles(undefined);
   };
 
+  // Sign out
   const handleLogout = () => {
     authService
       .logout()
@@ -199,6 +221,7 @@ export function ModelsPage() {
       });
   };
 
+  // Loading state
   if (loading) {
     return (
       <Flex
@@ -215,6 +238,7 @@ export function ModelsPage() {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <View padding="size-400">
@@ -233,6 +257,7 @@ export function ModelsPage() {
       }}
     >
       <Flex direction="column" gap="size-300">
+        {/* Header */}
         <Flex
           justifyContent="space-between"
           alignItems="center"
@@ -252,6 +277,7 @@ export function ModelsPage() {
 
         <Divider />
 
+        {/* Connection status */}
         <View
           padding="size-200"
           backgroundColor={source === "api" ? "green-100" : "orange-100"}
@@ -264,6 +290,7 @@ export function ModelsPage() {
           </Text>
         </View>
 
+        {/* Search */}
         <SearchField
           label="Search models"
           placeholder="Search by model name, family or tag..."
@@ -272,6 +299,7 @@ export function ModelsPage() {
           width="100%"
         />
 
+        {/* Main content */}
         <Flex
           direction={{
             base: "column",
@@ -280,6 +308,7 @@ export function ModelsPage() {
           gap="size-400"
           alignItems="start"
         >
+          {/* Filters */}
           <View
             width={{
               base: "100%",
@@ -289,6 +318,7 @@ export function ModelsPage() {
             <Flex direction="column" gap="size-200">
               <Heading level={2}>Filters</Heading>
 
+              {/* Pipeline */}
               <Picker
                 label="Pipeline tag"
                 placeholder="All pipelines"
@@ -300,6 +330,7 @@ export function ModelsPage() {
                 ))}
               </Picker>
 
+              {/* Family */}
               <Picker
                 label="Family"
                 placeholder="All families"
@@ -311,6 +342,7 @@ export function ModelsPage() {
                 ))}
               </Picker>
 
+              {/* Architecture */}
               <Picker
                 label="Architecture"
                 placeholder="All architectures"
@@ -324,6 +356,7 @@ export function ModelsPage() {
                 ))}
               </Picker>
 
+              {/* Weight */}
               <Picker
                 label="Weight / quantization"
                 placeholder="All weights"
@@ -335,6 +368,7 @@ export function ModelsPage() {
                 ))}
               </Picker>
 
+              {/* Minimum */}
               <NumberField
                 label="Minimum safetensor files"
                 value={minFiles}
@@ -342,6 +376,7 @@ export function ModelsPage() {
                 minValue={0}
               />
 
+              {/* Maximum */}
               <NumberField
                 label="Maximum safetensor files"
                 value={maxFiles}
@@ -355,8 +390,10 @@ export function ModelsPage() {
             </Flex>
           </View>
 
+          {/* Results */}
           <View flex>
             <Flex direction="column" gap="size-200">
+              {/* Result count + sorting */}
               <Flex
                 justifyContent="space-between"
                 alignItems="end"
@@ -369,6 +406,7 @@ export function ModelsPage() {
                 </Text>
 
                 <Flex gap="size-200" wrap>
+                  {/* Sort by */}
                   <Picker
                     label="Sort by"
                     selectedKey={sortBy}
@@ -381,6 +419,7 @@ export function ModelsPage() {
                     <Item key="safetensor">Safetensor files</Item>
                   </Picker>
 
+                  {/* Sort direction */}
                   <Picker
                     label="Direction"
                     selectedKey={sortDirection}
@@ -395,6 +434,7 @@ export function ModelsPage() {
                 </Flex>
               </Flex>
 
+              {/* Model cards */}
               <Flex direction="row" wrap gap="size-200">
                 {filteredModels.map((model) => (
                   <View
@@ -439,6 +479,7 @@ export function ModelsPage() {
                 ))}
               </Flex>
 
+              {/* No results */}
               {filteredModels.length === 0 && (
                 <View
                   padding="size-400"
