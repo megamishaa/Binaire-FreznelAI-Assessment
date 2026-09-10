@@ -1,99 +1,82 @@
 import { useEffect, useState } from "react";
 
+import { ModelRepository } from "../models/ModelRepository";
+
+const repository = new ModelRepository();
+
 export function ModelsPage() {
   const [models, setModels] = useState([]);
+  const [source, setSource] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    console.log("ModelsPage mounted");
-    console.log("Starting API request...");
+    repository
+      .loadModels()
+      .then((result) => {
+        console.log("Models loaded from:", result.source);
 
-    fetch("/api/models")
-      .then((response) => {
-        console.log("API status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status}`);
-        }
-
-        return response.json();
+        setModels(result.models);
+        setSource(result.source);
       })
-      .then((data) => {
-        console.log("API response received");
-        console.log("Number of models:", data.models?.length);
-
-        if (!data || !Array.isArray(data.models)) {
-          throw new Error("Invalid API response.");
-        }
-
-        setModels(data.models);
-      })
-      .catch((err) => {
-        console.error("API ERROR:", err);
-        setError(err.message);
+      .catch((error) => {
+        console.error(error);
+        setError(error.message);
       })
       .finally(() => {
-        console.log("API request finished");
         setLoading(false);
       });
   }, []);
 
+  if (loading) {
+    return <h1>Loading models...</h1>;
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: "30px" }}>
+        <h1>Models Page</h1>
+        <p style={{ color: "red" }}>{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
-        padding: "40px",
-        fontFamily: "Arial, sans-serif",
+        padding: "30px",
+        fontFamily: "Arial",
       }}
     >
       <h1>AI Model Selection Utility</h1>
 
-      {loading && <p>Loading models from API...</p>}
+      <p>
+        Data source:{" "}
+        <strong>{source === "api" ? "Online API" : "Local Cache"}</strong>
+      </p>
 
-      {error && <p style={{ color: "red" }}>ERROR: {error}</p>}
+      <p>
+        Models found: <strong>{models.length}</strong>
+      </p>
 
-      {!loading && !error && (
-        <>
-          <p>API loaded successfully.</p>
+      {models.slice(0, 10).map((model) => (
+        <div
+          key={model.id}
+          style={{
+            border: "1px solid #ccc",
+            padding: "15px",
+            marginBottom: "10px",
+          }}
+        >
+          <h3>{model.name}</h3>
 
-          <p>
-            Models found: <strong>{models.length}</strong>
-          </p>
+          <p>Family: {model.family}</p>
 
-          {models.slice(0, 10).map((model) => (
-            <div
-              key={model.id}
-              style={{
-                border: "1px solid #ccc",
-                padding: "15px",
-                marginBottom: "10px",
-                borderRadius: "6px",
-              }}
-            >
-              <h3>{model.display_name || model.id}</h3>
+          <p>Architecture: {model.architectureCategory}</p>
 
-              <p>
-                <strong>Family:</strong> {model.family || "Unknown"}
-              </p>
-
-              <p>
-                <strong>Architecture:</strong>{" "}
-                {model.architecture_category || "Unknown"}
-              </p>
-
-              <p>
-                <strong>Weight format:</strong>{" "}
-                {model.weight_format || "Unknown"}
-              </p>
-
-              <p>
-                <strong>Safetensor files:</strong>{" "}
-                {model.safetensor_file_count || 0}
-              </p>
-            </div>
-          ))}
-        </>
-      )}
+          <p>Safetensor files: {model.safetensorFileCount}</p>
+        </div>
+      ))}
     </div>
   );
 }
